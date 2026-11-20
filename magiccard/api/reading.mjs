@@ -7,8 +7,8 @@ const topics = { 姻缘: "怎样靠近合适的人？", 前路: "下一步该往
 const positions = ["来处", "当下", "下一步"];
 const system = "你在和一位坐在对面的客人说话。用温柔、亲切的日常中文直接回答对方选的问题，像认真听完后的回应。综合三条线索。advice 用一两句回应对方在意的事，action 给一个今天可以尝试的小举动。把选择留给对方，不编造对方的经历、关系或感受。仅输出含 advice 和 action 的 JSON，总计约60至100字。正文直接从回答开始，省略署名、称谓、标题、场景描写和逐条复述。";
 
-function json(status, body) {
-  return Response.json(body, {status, headers: {"Cache-Control":"no-store"}});
+function json(status, body, headers = {}) {
+  return Response.json(body, {status, headers: {"Cache-Control":"no-store", ...headers}});
 }
 
 async function readSpread(request) {
@@ -39,16 +39,17 @@ function answerText(content) {
   const answer = JSON.parse(cleaned.replace(/^```(?:json)?\s*|\s*```$/gi,""));
   return [answer.advice,answer.action].map(part => {
     if (typeof part !== "string") throw new Error("Invalid reading");
-    const text = part.trim().replace(/^(?:(?:我是)?(?:薇拉|月下占卜(?:屋的)?女巫|女巫)(?:[，、\s]*(?:薇拉|月下占卜(?:屋的)?女巫|女巫))*(?:说|答道)?[：:。！]\s*|(?:建议|行动|结论|解读)[：:]\s*)+/u,"").trim();
+    const text = part.trim().replace(/^(?:(?:我是)?(?:薇拉|月下占卜(?:屋的)?女巫|女巫)(?:[，、\s]*(?:薇拉|月下占卜(?:屋的)?女巫|女巫))*(?:说|答道)?[：:。！,，]\s*|(?:建议|行动|结论|解读)[：:]\s*)+/u,"").trim();
     if (!text) throw new Error("Empty reading");
     return text;
   }).join("\n\n");
 }
 
-export async function readTarot(request, getClient) {
-  if (request.method !== "POST") return json(405,{error:"请使用 POST 提交牌阵。"});
+export async function readTarot(request, getClient, {requireOrigin = false} = {}) {
+  if (request.method !== "POST") return json(405,{error:"请使用 POST 提交牌阵。"},{Allow:"POST"});
   const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) return json(403,{error:"请从当前牌桌打开解读。"});
+  if (((requireOrigin || origin !== null) && origin !== new URL(request.url).origin) ||
+      request.headers.get("sec-fetch-site") === "cross-site") return json(403,{error:"请从当前牌桌打开解读。"});
   if (request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json") {
     return json(415,{error:"需要 JSON 牌阵。"});
   }
@@ -80,6 +81,6 @@ export function createTarotApi({authorizeMarket,createEnvAiClient}) {
   return async function handleTarot(request,env) {
     if (new URL(request.url).pathname !== readingPath) return null;
     await authorizeMarket(request,env);
-    return readTarot(request,() => createEnvAiClient(env,{textProvider:"cloudflare"}));
+    return readTarot(request,() => createEnvAiClient(env,{textProvider:"cloudflare"}),{requireOrigin:true});
   };
 }

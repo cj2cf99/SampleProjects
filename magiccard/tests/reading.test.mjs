@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {createTarotApi, readingPath} from "../api/reading.mjs";
+import {createTarotApi, readTarot, readingPath} from "../api/reading.mjs";
 import major from "../deck.js";
 import minor from "../minor.js";
 
@@ -11,7 +11,7 @@ const spread = {topic:"前路", cards:[
 ]};
 const url = "https://example.test" + readingPath;
 function post(body, headers = {}) {
-  return new Request(url,{method:"POST",headers:{"Content-Type":"application/json",...headers},body});
+  return new Request(url,{method:"POST",headers:{Origin:new URL(url).origin,"Content-Type":"application/json",...headers},body});
 }
 
 test("宿主鉴权后使用共享文字客户端，按提交顺序提供本地牌义", async () => {
@@ -38,7 +38,7 @@ test("宿主鉴权后使用共享文字客户端，按提交顺序提供本地�
         assert.ok(user.includes(["来处："+major[0].upright.meaning,"当下："+major[21].reversed.meaning,
           "下一步："+minor.at(-1).upright.meaning].join("\n")));
         assert.ok(!user.includes("客户端额外提示"));
-        return {text:JSON.stringify({advice:"薇拉：留点时间想一想。",action:"今天先写下一件想做的事。"})};
+        return {text:JSON.stringify({advice:"我是薇拉，留点时间想一想。",action:"行动：今天先写下一件想做的事。"})};
       }};
     }
   });
@@ -68,4 +68,24 @@ test("鉴权失败交还宿主处理，模型失效返回可重试错误", async
   await assert.rejects(blocked(req(),{}),/unauthorized/);
   const invalid = createTarotApi({authorizeMarket(){},createEnvAiClient(){return {generate:()=>({text:"{}"})};}});
   assert.equal((await invalid(req(),{})).status,503);
+});
+
+test("主站执行精灵同源写入规则，本机保留脚本调用", async () => {
+  let calls = 0;
+  const client = () => ({generate() {
+    calls++;
+    return {text:JSON.stringify({advice:"先看看眼前的选择。",action:"写下第一步。"})};
+  }});
+  const handler = createTarotApi({authorizeMarket(){},createEnvAiClient:client});
+  const withoutOrigin = () => {
+    const request = post(JSON.stringify(spread));
+    request.headers.delete("origin");
+    return request;
+  };
+  assert.equal((await handler(withoutOrigin(),{})).status,403);
+  assert.equal((await handler(post(JSON.stringify(spread),{"Sec-Fetch-Site":"cross-site"}),{})).status,403);
+  assert.equal((await handler(new Request(url),{})).headers.get("Allow"),"POST");
+  assert.equal(calls,0);
+  assert.equal((await readTarot(withoutOrigin(),client)).status,200);
+  assert.equal(calls,1);
 });

@@ -37,7 +37,7 @@ const tarotResponse = await handleTarot(request, env);
 if (tarotResponse) return tarotResponse;
 ```
 
-Worker 使用共享客户端的 `cloudflare` 文字提供方。本机 Node 服务通过原有模型地址运行，两种环境共用同一份牌阵校验、提示词和响应处理。接口测试可在游戏目录执行 `node --test tests/reading.test.mjs`。
+Worker 沿用精灵的同源写入约束，请求须通过宿主鉴权，并带有与牌桌地址同源的 `Origin`；文字模型使用共享客户端的 `cloudflare` 提供方。本机 Node 服务也支持没有 `Origin` 的本机脚本，通过原有模型地址运行。两种环境共用同一份牌阵校验、提示词和响应处理。接口测试可在游戏目录执行 `node --test tests/reading.test.mjs`。
 
 ## 表演与制作
 
