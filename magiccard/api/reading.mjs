@@ -81,6 +81,8 @@ export function createTarotApi({authorizeMarket,createEnvAiClient}) {
   return async function handleTarot(request,env) {
     if (new URL(request.url).pathname !== readingPath) return null;
     await authorizeMarket(request,env);
-    return readTarot(request,() => createEnvAiClient(env,{textProvider:"cloudflare"}),{requireOrigin:true});
+    return readTarot(request,() => createEnvAiClient(env,{
+      textProvider:"cloudflare",cloudflareThinking:false,timeoutMs:30000
+    }),{requireOrigin:true});
   };
 }

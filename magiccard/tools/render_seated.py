@@ -3,6 +3,7 @@
 Outlines are traced in the 288 x 384 storyboard coordinate system.
 """
 from pathlib import Path
+import argparse
 import cv2
 import numpy as np
 from PIL import Image
@@ -15,11 +16,21 @@ arms = {
     "answer": [(197,158),(210,152),(219,144),(232,140),(251,137),(254,141),(243,146),(256,147),(265,146),(267,151),(256,157),(240,162),(229,161),(216,157),(198,173)]
 }
 props = {
-    "deal": [(141,136),(154,128),(181,119),(201,119),(224,128),(205,165),(182,174)],
     "think": [(164,143),(168,104),(192,103),(194,108),(186,147)]
 }
 grip = [(176,159),(178,155),(186,157),(188,154),(202,160),(205,165),(202,173),(197,177),(193,178),(182,169)]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--pose", choices=arms)
+pose = parser.parse_args().pose
 for name, outline in arms.items():
+    if pose and pose != name:
+        continue
+    if name == "deal":
+        # The empty hands and complete bodice are painted on the source plate.
+        # Cards are supplied at runtime, behind the fingers.
+        source = Path(__file__).parent / "artwork" / "seatdeal-empty.png"
+        with Image.open(source) as painting:
+            painting.convert("RGBA").resize((543, 724), Image.Resampling.LANCZOS).save(salon/"seatdeal.webp", quality=95)
     src = np.array(Image.open(salon/f"seat{name}.webp").convert("RGBA"))
     def mask(points):
         a = np.zeros(src.shape[:2],np.uint8)

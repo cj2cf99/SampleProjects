@@ -26,7 +26,7 @@ test("宿主鉴权后使用共享文字客户端，按提交顺序提供本地�
     },
     createEnvAiClient(bindings,options) {
       assert.equal(bindings,env);
-      assert.deepEqual(options,{textProvider:"cloudflare"});
+      assert.deepEqual(options,{textProvider:"cloudflare",cloudflareThinking:false,timeoutMs:30000});
       calls.push("model");
       return {async generate(input,{signal}) {
         assert.equal(signal,request.signal);
